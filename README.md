@@ -1,5 +1,4 @@
 # LapTimeSimulation
 Planar and non-planar lap time simulation including GG diagram generation and track preprocessing.
 
-Future improvements that need to be made:
-* Revamping the GG diagram generation code so that instead of solving an OCP problem at each $a_{y}$ point, it solves 1 OCP problem for the entire curve and maximizes some curve "radius". Some of the GG diagram generations can be a little asymmetric or don't seem quite so continuous from the previous one.
+"3d laptime simulation" computes optimal laptime using coordinates and elevation. "2d laptime simulation" only computes optimal laptime using coordinates (everything is planar). Optimal laptime is currently only computed along a centerline of the track. There is functionality for finding the minimum curvature line through an optimization, but this generates unrealistic racing lines, so optimal line calculation is still in progress.
