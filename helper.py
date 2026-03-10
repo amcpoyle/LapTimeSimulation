@@ -7,6 +7,16 @@ import pandas as pd
 from scipy.interpolate import interp1d, griddata, LinearNDInterpolator
 from scipy.spatial import cKDTree
 
+def resample_motec_data(data_path, target_lap_num):
+    df = pd.read_csv(data_path, encoding='ISO-8859-1')
+    df['Time'] = pd.to_timedelta(df['Time'], unit='s')
+    df = df.set_index('Time')
+    df_100ms = df.resample('100ms').mean(numeric_only=True)
+    df_100ms['Time'] = df_100ms.index.total_seconds()
+    df_100ms = df_100ms.reset_index(drop=True)
+    return df_100ms
+
+
 def load_gg_data(velocity_values, version):
     ax_files = []
     ay_files = []

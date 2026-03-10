@@ -57,6 +57,55 @@ def mf_fx_fy(tire, kappa, alpha, Fz):
     return Fx, Fy
 
 
+def mf_lon(kappa, Fz, tire):
+    Fz0 = tire['ref_load']
+    pCx1 = tire['pCx1']
+    pDx1 = tire['pDx1']
+    pEx1 = tire['pEx1']
+    pKx1 = tire['pKx1']
+    pKx3 = tire['pKx3']
+    pHx1 = tire['pHx1']
+
+    dfz = (ca.fabs(Fz) - Fz0)/Fz0
+    Cx = pCx1
+    Dx = ca.fabs(Fz)*pDx1  # pDx2 fixed at 0
+
+
+    Ex = pEx1
+    BCD = ca.fabs(Fz)*pKx1*ca.exp(pKx3*dfz)
+
+    Bx = BCD/(Cx*Dx)
+
+    Shx = pHx1
+    Svx = 0.0
+
+    kappa_r = kappa + Shx
+    Fx = Dx*ca.sin(
+        Cx*ca.atan(
+            Bx*kappa_r - Ex*(Bx*kappa_r - ca.atan(Bx*kappa_r))
+        )
+    ) + Svx
+    return Fx
+
+def mf_lat(alpha, Fz, tire):
+    Fz0 = tire['ref_load']
+    pCy1 = tire['pCy1']
+    pDy1 = tire['pDy1']
+    pEy1 = tire['pEy1']
+    pKy1 = tire['pKy1']
+    pKy2 = tire['pKy2']
+    pHy1 = tire['pHy1']
+
+    Cy = pCy1
+    Dy = Fz * pDy1
+    Ey = pEy1
+    KyA = pKy1 * Fz0 * ca.sin(2 * ca.atan(Fz / (pKy2 * Fz0)))
+    By = KyA / (Cy * Dy)
+    alpha_r = alpha + pHy1
+    Fy = Dy * ca.sin(Cy * ca.atan(By*alpha_r - Ey*(By*alpha_r - ca.atan(By*alpha_r))))
+    return Fy
+
+
 def normal_loads(car, tire, ax, ay, u):
     rho_air = car['rho_air']
     CLfA = car['CLf']*car['A']
@@ -127,6 +176,16 @@ def qss_equations_core(alpha_val, states, car, tire, V, is_braking):
     lambda_rr = -(v - omega*b)/(u - omega*trackwidth/2)
 
     Nfl, Nfr, Nrl, Nrr = normal_loads(car, tire, ax, ay, u)
+
+    # fx_fl = mf_lon(kfl, Nfl, tire)
+    # fx_fr = mf_lon(kfr, Nfr, tire)
+    # fx_rl = mf_lon(krl, Nrl, tire)
+    # fx_rr = mf_lon(krr, Nrr, tire)
+
+    # fy_fl = mf_lat(lambda_fl, Nfl, tire)
+    # fy_fr = mf_lat(lambda_fr, Nfr, tire)
+    # fy_rl = mf_lat(lambda_rl, Nrl, tire)
+    # fy_rr = mf_lat(lambda_rr, Nrr, tire)
 
     fx_fl, fy_fl = mf_fx_fy(tire, kfl, lambda_fl, Nfl)
     fx_fr, fy_fr = mf_fx_fy(tire, kfr, lambda_fr, Nfr)
@@ -403,7 +462,7 @@ def plot_results(solution, save, version):
     return fig
 
 if __name__ == "__main__":
-    velocity_values = [45]
+    velocity_values = [15]
     car = Car("./VehicleParameters.xlsx")
     car.load_data()
     tire = Tire("./TireParameters.xlsx")
@@ -422,6 +481,6 @@ if __name__ == "__main__":
 
         solution = solve(V=V, car=car_params, tire=tire_params)
 
-        fig = plot_results(solution, True, 0)
+        fig = plot_results(solution, False, 1)
         plt.savefig('gg_diagram_corrected.png', dpi=150, bbox_inches='tight')
         plt.show()

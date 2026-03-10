@@ -1,0 +1,8 @@
+TireParameters.xlsx
+VehicleParameters.xlsx
+cornering_run8.csv
+drivebrake_run72.csv
+data
+tire_data
+*.swp
+*.log

@@ -26,9 +26,10 @@ def kml_to_df(file_path, boundary_side, track_name):
     with open(file_path, 'r') as f:
         # doc = parser.parse(f)
         root = parser.parse(f).getroot()
-    
-    coor = (root.Document.Placemark.Polygon.outerBoundaryIs.LinearRing.coordinates).text.strip()
-    
+
+    # coor = (root.Document.Placemark.Polygon.outerBoundaryIs.LinearRing.coordinates).text.strip()
+    coor = (root.Document.Folder.Placemark.Polygon.outerBoundaryIs.LinearRing.coordinates).text.strip()
+
     lats = []
     lons = []
     alts = []
@@ -56,9 +57,10 @@ def kml_to_array(file_path):
     with open(file_path, 'r') as f:
         # doc = parser.parse(f)
         root = parser.parse(f).getroot()
-    
-    coor = (root.Document.Placemark.Polygon.outerBoundaryIs.LinearRing.coordinates).text.strip()
-    
+
+    # coor = (root.Document.Placemark.Polygon.outerBoundaryIs.LinearRing.coordinates).text.strip()
+    coor = (root.Document.Folder.Placemark.Polygon.outerBoundaryIs.LinearRing.coordinates).text.strip()
+
     triples = []
     coor_split = coor.split(' ')
 
@@ -80,9 +82,10 @@ def kml_to_latlon(file_path):
     with open(file_path, 'r') as f:
         # doc = parser.parse(f)
         root = parser.parse(f).getroot()
-    
-    coor = (root.Document.Placemark.Polygon.outerBoundaryIs.LinearRing.coordinates).text.strip()
-    
+
+    # coor = (root.Document.Placemark.Polygon.outerBoundaryIs.LinearRing.coordinates).text.strip()
+    coor = (root.Document.Folder.Placemark.Polygon.outerBoundaryIs.LinearRing.coordinates).text.strip()
+
     lats = []
     lons = []
     coor_split = coor.split(' ')
