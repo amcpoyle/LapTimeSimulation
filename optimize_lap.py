@@ -39,10 +39,10 @@ def optimize(centerline, centerline_curvature, surface, df):
     # populataing the max velocity based on centerline curvature array
     for i, kappa_i in enumerate(centerline_curvature):
         kappa_abs = abs(kappa_i)
-        if kappa_abs <= 1e-9:
+        if kappa_abs <= 1e-9: # straight line
             max_velocities[i] = v_max
         else:
-            f = lambda v: ay_max_func(v) - (v**2)*kappa_abs
+            f = lambda v: get_pts.ay_max(v) - (v**2)*kappa_abs
             if f(v_max) >= 0:
                 max_velocities[i] = v_max
             elif f(v_min) <= 0:
@@ -56,43 +56,57 @@ def optimize(centerline, centerline_curvature, surface, df):
     print(f"Curvature - min: {np.min(np.abs(centerline_curvature)):.6f}, max: {np.max(np.abs(centerline_curvature)):.6f}, mean: {np.mean(np.abs(centerline_curvature)):.6f}")
     print(f"Max velocities - min: {np.min(max_velocities):.1f}, max: {np.max(max_velocities):.1f}, mean: {np.mean(max_velocities):.1f}")
 
-    v_start = 5 # TODO: start at a lower value?
+    v_start = 17 # this is the speed the real data starts at for the lap
     forward_velocity = np.zeros(len(centerline))
     forward_velocity[0] = v_start
-
-
-    # determining our ay and ax max values, and the corresponding velocities
-    # forward integrating (limited accel)
-    for i in range(len(centerline) - 1):
-        ds = np.linalg.norm(centerline[i+1] - centerline[i]) 
-        kappa_i = centerline_curvature[i]
-        # v = max_velocities[i]
-        ay = (forward_velocity[i]**2)*abs(kappa_i)
-
-        # query ggv for the corresponding ax value
-        ax_max = get_pts.query(ay, forward_velocity[i], mode='accel')
-
-        # forward integration
-        v_next = forward_velocity[i]**2 + 2.0*ax_max*ds
-        v_next = np.sqrt(max(v_next, 0.0))
-        
-        # our velocity constraint that we computed before
-        forward_velocity[i+1] = min(v_next, max_velocities[i+1])
-
     forward_copy = forward_velocity.copy()
-    forward_copy[-1] = forward_copy[0]
 
-    # backward integrating (limited brake)
-    for i in range(len(centerline) - 1, 0, -1):
-        ds = np.linalg.norm(centerline[i] - centerline[i-1])
-        kappa_i = centerline_curvature[i]
-        ay = (forward_copy[i]**2)*abs(kappa_i)
-        ax_min = get_pts.query(ay, forward_copy[i], mode='brake')
+    # need to do iterations to find the optimal start (and therefore end) speed
+    # that ensures we do not have to brake at the end of the lap (this was a bug)
+    for iteration in range(10):
+        prev_copy = forward_copy.copy()
 
-        v_prev = (forward_copy[i]**2) - 2.0*ax_min*ds
-        v_prev = np.sqrt(max(v_prev, 0.0))
+        # forward integrating (accel)
+        if iteration == 0:
+            forward_velocity[0] = v_start
+        else:
+            forward_velocity[0] = forward_copy[0] # prev result = new start result
 
-        forward_copy[i-1] = min(v_prev, max_velocities[i-1], forward_velocity[i-1])
+        for i in range(len(centerline) - 1):
+            ds = np.linalg.norm(centerline[i+1] - centerline[i])
+            kappa_i = centerline_curvature[i]
+            # v = max_velocities[i]
+            ay = (forward_velocity[i]**2)*abs(kappa_i)
+
+            # query ggv for the corresponding ax value
+            ax_max = get_pts.query(ay, forward_velocity[i], mode='accel')
+
+            # forward integration
+            v_next = forward_velocity[i]**2 + 2.0*ax_max*ds
+            v_next = np.sqrt(max(v_next, 0.0))
+
+            # our velocity constraint that we computed before
+            forward_velocity[i+1] = min(v_next, max_velocities[i+1])
+
+        forward_copy = forward_velocity.copy()
+        forward_copy[-1] = forward_copy[0]
+
+        # backward integrating (brake)
+        for i in range(len(centerline) - 1, 0, -1):
+            ds = np.linalg.norm(centerline[i] - centerline[i-1])
+            kappa_i = centerline_curvature[i]
+            ay = (forward_copy[i]**2)*abs(kappa_i)
+            ax_min = get_pts.query(ay, forward_copy[i], mode='brake')
+
+            v_prev = (forward_copy[i]**2) - 2.0*ax_min*ds
+            v_prev = np.sqrt(max(v_prev, 0.0))
+
+            forward_copy[i-1] = min(v_prev, max_velocities[i-1], forward_velocity[i-1])
+
+        # check convergence against previous iteration (not forward vs backward within same iteration)
+        if np.max(np.abs(forward_copy - prev_copy)) < 0.01:
+            print(f"Converged in {iteration + 1} iterations")
+            break
 
     # Debug output
     print(f"Final velocities - min: {np.min(forward_copy):.1f}, max: {np.max(forward_copy):.1f}, mean: {np.mean(forward_copy):.1f}")

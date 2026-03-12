@@ -6,12 +6,13 @@ import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d, griddata, LinearNDInterpolator
 from scipy.spatial import cKDTree
+import casadi as ca
 
 def resample_motec_data(data_path, target_lap_num):
     df = pd.read_csv(data_path, encoding='ISO-8859-1')
     df['Time'] = pd.to_timedelta(df['Time'], unit='s')
     df = df.set_index('Time')
-    df_100ms = df.resample('100ms').mean(numeric_only=True)
+    df_100ms = df.resample('50ms').mean(numeric_only=True)
     df_100ms['Time'] = df_100ms.index.total_seconds()
     df_100ms = df_100ms.reset_index(drop=True)
     return df_100ms
@@ -97,8 +98,17 @@ class getPoints:
         self.brake_tree = cKDTree(self.brake_points)
 
         self.all_points = np.vstack([self.accel_points, self.brake_points])
-        self.ay_min, self.ay_max = self.all_points[:, 0].min(), self.all_points[:, 0].max()
+        self._ay_min_bound, self._ay_max_bound = self.all_points[:, 0].min(), self.all_points[:, 0].max()
         self.v_min, self.v_max = self.all_points[:, 1].min(), self.all_points[:, 1].max()
+
+        # build ay_max interpolator which will give us continuous data for ay_max function
+        v_unique = sorted(df['v'].unique())
+        ay_max_at_v = np.array([df[df['v'] == v]['ay'].abs().max() for v in v_unique])
+        self._ay_max_interp = interp1d(v_unique, ay_max_at_v, kind='linear', fill_value='extrapolate')
+
+    def ay_max(self, v):
+        # fetching the max ay based on velocity we are at from the GGV
+        return float(self._ay_max_interp(v))
 
     def query(self, ay, v, mode='accel', method='linear'):
         # get ax value for (ay, v) pair
@@ -136,9 +146,9 @@ class getPoints:
                 return values[idx]
 
     def get_bounds(self):
-        return {'ay_min': self.ay_min, 'ay_max': self.ay_max,
+        return {'ay_min': self._ay_min_bound, 'ay_max': self._ay_max_bound,
                 'v_min': self.v_min, 'v_max': self.v_max}
 
     def in_bounds(self, ay, v):
-        return (self.ay_min <= ay <= self.ay_max and
+        return (self._ay_min_bound <= ay <= self._ay_max_bound and
                 self.v_min <= v <= self.v_max)
